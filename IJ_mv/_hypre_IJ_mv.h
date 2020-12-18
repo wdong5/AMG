@@ -350,7 +350,7 @@ HYPRE_Int HYPRE_IJMatrixSetRowSizes ( HYPRE_IJMatrix matrix , const HYPRE_Int *s
 HYPRE_Int HYPRE_IJMatrixSetDiagOffdSizes ( HYPRE_IJMatrix matrix , const HYPRE_Int *diag_sizes , const HYPRE_Int *offdiag_sizes );
 HYPRE_Int HYPRE_IJMatrixSetMaxOffProcElmts ( HYPRE_IJMatrix matrix , HYPRE_Int max_off_proc_elmts );
 HYPRE_Int HYPRE_IJMatrixRead ( const char *filename , MPI_Comm comm , HYPRE_Int type , HYPRE_IJMatrix *matrix_ptr );
-HYPRE_Int HYPRE_IJMatrixPrint ( HYPRE_IJMatrix matrix , const char *filename );
+HYPRE_Int HYPRE_IJMatrixPrint ( HYPRE_IJMatrix matrix , HYPRE_Int seed , const char *filename );
 HYPRE_Int HYPRE_IJMatrixSetOMPFlag ( HYPRE_IJMatrix matrix , HYPRE_Int omp_flag );
 
 /* HYPRE_IJVector.c */
@@ -368,7 +368,7 @@ HYPRE_Int HYPRE_IJVectorGetObjectType ( HYPRE_IJVector vector , HYPRE_Int *type 
 HYPRE_Int HYPRE_IJVectorGetLocalRange ( HYPRE_IJVector vector , HYPRE_Int *jlower , HYPRE_Int *jupper );
 HYPRE_Int HYPRE_IJVectorGetObject ( HYPRE_IJVector vector , void **object );
 HYPRE_Int HYPRE_IJVectorRead ( const char *filename , MPI_Comm comm , HYPRE_Int type , HYPRE_IJVector *vector_ptr );
-HYPRE_Int HYPRE_IJVectorPrint ( HYPRE_IJVector vector , const char *filename );
+HYPRE_Int HYPRE_IJVectorPrint ( HYPRE_IJVector vector , HYPRE_Int seed , const char *filename );
 
 #ifdef __cplusplus
 }

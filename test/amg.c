@@ -51,7 +51,7 @@ HYPRE_Int hypre_map27( HYPRE_Int  ix, HYPRE_Int  iy, HYPRE_Int  iz,
 }
 #endif
 #define SECOND_TIME 0
- 
+
 hypre_int
 main( hypre_int argc,
       char *argv[] )
@@ -68,17 +68,21 @@ main( hypre_int argc,
    HYPRE_Int           poutdat;
    HYPRE_Int           debug_flag;
    HYPRE_Int           ierr = 0;
-   HYPRE_Int           i, j; 
+   HYPRE_Int           i, j;
    HYPRE_Int           max_levels = 25;
    HYPRE_Int           num_iterations;
    HYPRE_Int           max_iter = 1000;
    HYPRE_Int           mg_max_iter = 100;
    HYPRE_Int 	       cum_num_its=0;
    HYPRE_Int           nodal = 0;
+   //WQ: add a random index for generating the dataset
+   srand(time(NULL));
+   HYPRE_Int           seed = rand()%10000;
+
    HYPRE_Real          final_res_norm;
    void               *object;
 
-   HYPRE_IJMatrix      ij_A; 
+   HYPRE_IJMatrix      ij_A;
    HYPRE_IJVector      ij_b;
    HYPRE_IJVector      ij_x;
 
@@ -109,8 +113,8 @@ main( hypre_int argc,
    HYPRE_Int    cycle_type;
    HYPRE_Int    coarsen_type = 8;
    HYPRE_Int    measure_type = 0;
-   HYPRE_Int    num_sweeps = 2;  
-   HYPRE_Int    relax_type = 18;   
+   HYPRE_Int    num_sweeps = 2;
+   HYPRE_Int    relax_type = 18;
    HYPRE_Int    rap2=1;
    HYPRE_Int    keepTranspose = 0;
    HYPRE_Real   tol = 1.e-8, pc_tol = 0.;
@@ -148,7 +152,7 @@ main( hypre_int argc,
    /*-----------------------------------------------------------
     * Set defaults
     *-----------------------------------------------------------*/
- 
+
    build_rhs_type = 3;
    build_rhs_arg_index = argc;
    build_src_type = -1;
@@ -164,7 +168,7 @@ main( hypre_int argc,
    /*-----------------------------------------------------------
     * Parse command line
     *-----------------------------------------------------------*/
- 
+
    print_usage = 0;
    arg_index = 1;
 
@@ -191,11 +195,11 @@ main( hypre_int argc,
       {
          arg_index++;
          problem_id = atoi(argv[arg_index++]);
-         if (problem_id == 2) 
+         if (problem_id == 2)
 	 {
 	    solver_id = 3;
 	 }
-         
+
       }
       else if ( strcmp(argv[arg_index], "-printstats") == 0 )
       {
@@ -231,7 +235,7 @@ main( hypre_int argc,
    /*-----------------------------------------------------------
     * Print usage info
     *-----------------------------------------------------------*/
- 
+
    if ( (print_usage) && (myid == 0) )
    {
       hypre_printf("\n");
@@ -249,14 +253,14 @@ main( hypre_int argc,
       hypre_printf("  -printstats  : prints preconditioning and convergence stats\n");
       hypre_printf("  -printallstats  : prints preconditioning and convergence stats\n");
       hypre_printf("                    including residual norms for each iteration\n");
-      hypre_printf("\n"); 
+      hypre_printf("\n");
       exit(1);
    }
 
    /*-----------------------------------------------------------
     * Print driver parameters
     *-----------------------------------------------------------*/
- 
+
    if (myid == 0)
    {
       hypre_printf("Running with these driver parameters:\n");
@@ -330,17 +334,17 @@ main( hypre_int argc,
    hypre_PrintTiming("IJ Vector Setup", &wall_time, hypre_MPI_COMM_WORLD);
    hypre_FinalizeTiming(time_index);
    hypre_ClearTiming();
-   
+
    /*-----------------------------------------------------------
     * Print out the system and initial guess
     *-----------------------------------------------------------*/
 
    if (print_system)
    {
-      HYPRE_IJMatrixPrint(ij_A, "IJ.out.A");
-      HYPRE_IJVectorPrint(ij_b, "IJ.out.b");
-      HYPRE_IJVectorPrint(ij_x, "IJ.out.x0");
 
+      HYPRE_IJMatrixPrint(ij_A, seed, "IJ.out.A");
+      HYPRE_IJVectorPrint(ij_b, seed, "IJ.out.b");
+      HYPRE_IJVectorPrint(ij_x, seed, "IJ.out.x0");
    }
 
    /*-----------------------------------------------------------
@@ -353,7 +357,7 @@ main( hypre_int argc,
       time_index = hypre_InitializeTiming("PCG Setup");
       hypre_MPI_Barrier(hypre_MPI_COMM_WORLD);
       hypre_BeginTiming(time_index);
- 
+
       HYPRE_ParCSRPCGCreate(hypre_MPI_COMM_WORLD, &pcg_solver);
       HYPRE_PCGSetMaxIter(pcg_solver, max_iter);
       HYPRE_PCGSetTol(pcg_solver, tol);
@@ -364,7 +368,7 @@ main( hypre_int argc,
 
       /* use BoomerAMG as preconditioner */
       if (myid == 0 && print_stats) hypre_printf("Solver: AMG-PCG\n");
-      HYPRE_BoomerAMGCreate(&pcg_precond); 
+      HYPRE_BoomerAMGCreate(&pcg_precond);
       HYPRE_BoomerAMGSetTol(pcg_precond, pc_tol);
       HYPRE_BoomerAMGSetCoarsenType(pcg_precond, coarsen_type);
       HYPRE_BoomerAMGSetPMaxElmts(pcg_precond, P_max_elmts);
@@ -381,18 +385,18 @@ main( hypre_int argc,
                              (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSolve,
                              (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSetup,
                              pcg_precond);
- 
+
       HYPRE_PCGGetPrecond(pcg_solver, &pcg_precond_gotten);
       if (pcg_precond_gotten !=  pcg_precond)
       {
          hypre_printf("HYPRE_ParCSRPCGGetPrecond got bad precond\n");
          return(-1);
       }
-      else 
+      else
          if (myid == 0 && print_stats)
             hypre_printf("HYPRE_ParCSRPCGGetPrecond got good precond\n");
 
-      HYPRE_PCGSetup(pcg_solver, (HYPRE_Matrix)parcsr_A, 
+      HYPRE_PCGSetup(pcg_solver, (HYPRE_Matrix)parcsr_A,
                      (HYPRE_Vector)b, (HYPRE_Vector)x);
 
       hypre_MPI_Barrier(hypre_MPI_COMM_WORLD);
@@ -408,25 +412,25 @@ main( hypre_int argc,
 
       if (myid == 0)
             printf ("\nFOM_Setup: nnz_AP / Setup Phase Time: %e\n\n", FOM1);
-   
+
       time_index = hypre_InitializeTiming("PCG Solve");
       hypre_MPI_Barrier(hypre_MPI_COMM_WORLD);
       hypre_BeginTiming(time_index);
- 
-      HYPRE_PCGSolve(pcg_solver, (HYPRE_Matrix)parcsr_A, 
+
+      HYPRE_PCGSolve(pcg_solver, (HYPRE_Matrix)parcsr_A,
                      (HYPRE_Vector)b, (HYPRE_Vector)x);
- 
+
       hypre_MPI_Barrier(hypre_MPI_COMM_WORLD);
       hypre_EndTiming(time_index);
       hypre_PrintTiming("Problem 1: AMG-PCG Solve Time", &wall_time, hypre_MPI_COMM_WORLD);
       hypre_FinalizeTiming(time_index);
       hypre_ClearTiming();
       fflush(NULL);
- 
+
       HYPRE_PCGGetNumIterations(pcg_solver, &num_iterations);
       HYPRE_PCGGetFinalRelativeResidualNorm(pcg_solver, &final_res_norm);
 
-   
+
       HYPRE_BoomerAMGDestroy(pcg_precond);
 
       HYPRE_ParCSRPCGDestroy(pcg_solver);
@@ -444,7 +448,7 @@ main( hypre_int argc,
          FOM1 /= 4.0;
          printf ("\n\nFigure of Merit (FOM_1): %e\n\n", FOM1);
       }
- 
+
    }
 
    /*-----------------------------------------------------------
@@ -461,7 +465,7 @@ main( hypre_int argc,
       hypre_BeginTiming(time_index);
       for (j=0; j < time_steps; j++)
       {
- 
+
          HYPRE_ParCSRGMRESCreate(hypre_MPI_COMM_WORLD, &pcg_solver);
          HYPRE_GMRESSetKDim(pcg_solver, k_dim);
          HYPRE_GMRESSetMaxIter(pcg_solver, max_iter);
@@ -470,11 +474,11 @@ main( hypre_int argc,
          HYPRE_GMRESSetLogging(pcg_solver, 1);
          HYPRE_GMRESSetPrintLevel(pcg_solver, ioutdat);
          HYPRE_GMRESSetRelChange(pcg_solver, rel_change);
- 
+
          /* use BoomerAMG as preconditioner */
          if (myid == 0 && print_stats) hypre_printf("Solver: AMG-GMRES\n");
 
-         HYPRE_BoomerAMGCreate(&pcg_precond); 
+         HYPRE_BoomerAMGCreate(&pcg_precond);
          HYPRE_BoomerAMGSetTol(pcg_precond, pc_tol);
          HYPRE_BoomerAMGSetCoarsenType(pcg_precond, coarsen_type);
          HYPRE_BoomerAMGSetPMaxElmts(pcg_precond, P_max_elmts);
@@ -504,9 +508,9 @@ main( hypre_int argc,
          HYPRE_GMRESSetup (pcg_solver, (HYPRE_Matrix)parcsr_A, (HYPRE_Vector)b, (HYPRE_Vector)x);
          HYPRE_BoomerAMGGetCumNnzAP(pcg_precond, &nnz_AP);
          cum_nnz_AP += nnz_AP;
- 
+
          HYPRE_GMRESSolve (pcg_solver, (HYPRE_Matrix)parcsr_A, (HYPRE_Vector)b, (HYPRE_Vector)x);
- 
+
          HYPRE_GMRESGetNumIterations(pcg_solver, &num_iterations);
          HYPRE_GMRESGetFinalRelativeResidualNorm(pcg_solver,&final_res_norm);
          if (myid == 0 && print_stats)
@@ -517,7 +521,7 @@ main( hypre_int argc,
             hypre_printf("\n");
          }
          cum_num_its += num_iterations;
-      
+
          for (i=0; i < 4; i++)
          {
             HYPRE_Int gmres_iter = 6-i;
@@ -538,12 +542,12 @@ main( hypre_int argc,
             }
             cum_num_its += num_iterations;
          }
- 
+
          HYPRE_BoomerAMGDestroy(pcg_precond);
 
          HYPRE_ParCSRGMRESDestroy(pcg_solver);
- 
-         if (j < time_steps) 
+
+         if (j < time_steps)
          {
             diagonal -= 0.1 ;
             AddOrRestoreAIJ(ij_A, diagonal, 0);
@@ -569,7 +573,7 @@ main( hypre_int argc,
          hypre_printf("\n");
       }
    }
- 
+
 
    /*-----------------------------------------------------------
     * Print the solution
@@ -577,7 +581,7 @@ main( hypre_int argc,
 
    if (print_system)
    {
-      HYPRE_IJVectorPrint(ij_x, "IJ.out.x");
+      HYPRE_IJVectorPrint(ij_x, seed, "IJ.out.x");
    }
 
    /*-----------------------------------------------------------
@@ -653,7 +657,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    /*-----------------------------------------------------------
     * Set defaults
     *-----------------------------------------------------------*/
- 
+
    nx = 10;
    ny = 10;
    nz = 10;
@@ -702,9 +706,9 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
     * Print driver parameters
     *-----------------------------------------------------------*/
 
-   nx_global = P*nx; 
-   ny_global = Q*ny; 
-   nz_global = R*nz; 
+   nx_global = P*nx;
+   ny_global = Q*ny;
+   nz_global = R*nz;
    global_size = (HYPRE_Real)(nx_global*ny_global*nz_global);
    if (myid == 0)
 
@@ -724,9 +728,9 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    pz = ( myid - px - P*py)/( P*Q );
 
    /*-----------------------------------------------------------
-    * Generate the matrix 
+    * Generate the matrix
     *-----------------------------------------------------------*/
- 
+
    value = hypre_CTAlloc(HYPRE_Real, 2);
 
    value[0] = 26.0;
@@ -800,10 +804,10 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
             cnt++;
             o_cnt++;
             diag_i[cnt]++;
-            if (iz > nz*pz) 
+            if (iz > nz*pz)
             {
                diag_i[cnt]++;
-               if (iy > ny*py) 
+               if (iy > ny*py)
                {
                   diag_i[cnt]++;
       	          if (ix > nx*px)
@@ -812,7 +816,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix) 
+      	             if (ix)
       		        offd_i[o_cnt]++;
       	          }
       	          if (ix < nx*(px+1)-1)
@@ -821,13 +825,13 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix+1 < nx_global) 
+      	             if (ix+1 < nx_global)
       		        offd_i[o_cnt]++;
       	          }
                }
                else
                {
-                  if (iy) 
+                  if (iy)
                   {
                      offd_i[o_cnt]++;
       	             if (ix > nx*px)
@@ -848,25 +852,25 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
                   }
                }
-               if (ix > nx*px) 
+               if (ix > nx*px)
                   diag_i[cnt]++;
                else
                {
-                  if (ix) 
+                  if (ix)
                   {
                      offd_i[o_cnt]++;
                   }
                }
-               if (ix+1 < nx*(px+1)) 
+               if (ix+1 < nx*(px+1))
                   diag_i[cnt]++;
                else
                {
-                  if (ix+1 < nx_global) 
+                  if (ix+1 < nx_global)
                   {
-                     offd_i[o_cnt]++; 
+                     offd_i[o_cnt]++;
                   }
                }
-               if (iy+1 < ny*(py+1)) 
+               if (iy+1 < ny*(py+1))
                {
                   diag_i[cnt]++;
       	          if (ix > nx*px)
@@ -875,7 +879,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix) 
+      	             if (ix)
       		        offd_i[o_cnt]++;
       	          }
       	          if (ix < nx*(px+1)-1)
@@ -884,13 +888,13 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix+1 < nx_global) 
+      	             if (ix+1 < nx_global)
       		        offd_i[o_cnt]++;
       	          }
                }
                else
                {
-                  if (iy+1 < ny_global) 
+                  if (iy+1 < ny_global)
                   {
                      offd_i[o_cnt]++;
       	             if (ix > nx*px)
@@ -917,7 +921,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                if (iz)
 	       {
 		  offd_i[o_cnt]++;
-                  if (iy > ny*py) 
+                  if (iy > ny*py)
                   {
                      offd_i[o_cnt]++;
       	             if (ix > nx*px)
@@ -926,7 +930,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix) 
+      	                if (ix)
       	   	        offd_i[o_cnt]++;
       	             }
       	             if (ix < nx*(px+1)-1)
@@ -935,13 +939,13 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix+1 < nx_global) 
+      	                if (ix+1 < nx_global)
       	   	        offd_i[o_cnt]++;
       	             }
                   }
                   else
                   {
-                     if (iy) 
+                     if (iy)
                      {
                         offd_i[o_cnt]++;
       	                if (ix > nx*px)
@@ -962,25 +966,25 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	                }
                      }
                   }
-                  if (ix > nx*px) 
+                  if (ix > nx*px)
                      offd_i[o_cnt]++;
                   else
                   {
-                     if (ix) 
+                     if (ix)
                      {
-                        offd_i[o_cnt]++; 
+                        offd_i[o_cnt]++;
                      }
                   }
-                  if (ix+1 < nx*(px+1)) 
+                  if (ix+1 < nx*(px+1))
                      offd_i[o_cnt]++;
                   else
                   {
-                     if (ix+1 < nx_global) 
+                     if (ix+1 < nx_global)
                      {
-                        offd_i[o_cnt]++; 
+                        offd_i[o_cnt]++;
                      }
                   }
-                  if (iy+1 < ny*(py+1)) 
+                  if (iy+1 < ny*(py+1))
                   {
                      offd_i[o_cnt]++;
       	             if (ix > nx*px)
@@ -989,7 +993,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix) 
+      	                if (ix)
       	   	           offd_i[o_cnt]++;
       	             }
       	             if (ix < nx*(px+1)-1)
@@ -998,13 +1002,13 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix+1 < nx_global) 
+      	                if (ix+1 < nx_global)
       	   	           offd_i[o_cnt]++;
       	             }
                   }
                   else
                   {
-                     if (iy+1 < ny_global) 
+                     if (iy+1 < ny_global)
                      {
                         offd_i[o_cnt]++;
       	                if (ix > nx*px)
@@ -1027,7 +1031,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                   }
                }
             }
-            if (iy > ny*py) 
+            if (iy > ny*py)
             {
                diag_i[cnt]++;
    	       if (ix > nx*px)
@@ -1036,7 +1040,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    	       }
    	       else
    	       {
-   	          if (ix) 
+   	          if (ix)
    		     offd_i[o_cnt]++;
    	       }
    	       if (ix < nx*(px+1)-1)
@@ -1045,13 +1049,13 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    	       }
    	       else
    	       {
-   	          if (ix+1 < nx_global) 
+   	          if (ix+1 < nx_global)
    		     offd_i[o_cnt]++;
    	       }
             }
             else
             {
-               if (iy) 
+               if (iy)
                {
                   offd_i[o_cnt]++;
    	          if (ix > nx*px)
@@ -1072,25 +1076,25 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    	          }
                }
             }
-            if (ix > nx*px) 
+            if (ix > nx*px)
                diag_i[cnt]++;
             else
             {
-               if (ix) 
+               if (ix)
                {
-                  offd_i[o_cnt]++; 
+                  offd_i[o_cnt]++;
                }
             }
-            if (ix+1 < nx*(px+1)) 
+            if (ix+1 < nx*(px+1))
                diag_i[cnt]++;
             else
             {
-               if (ix+1 < nx_global) 
+               if (ix+1 < nx_global)
                {
-                  offd_i[o_cnt]++; 
+                  offd_i[o_cnt]++;
                }
             }
-            if (iy+1 < ny*(py+1)) 
+            if (iy+1 < ny*(py+1))
             {
                diag_i[cnt]++;
    	       if (ix > nx*px)
@@ -1099,7 +1103,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    	       }
    	       else
    	       {
-   	          if (ix) 
+   	          if (ix)
    		     offd_i[o_cnt]++;
    	       }
    	       if (ix < nx*(px+1)-1)
@@ -1108,13 +1112,13 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    	       }
    	       else
    	       {
-   	          if (ix+1 < nx_global) 
+   	          if (ix+1 < nx_global)
    		     offd_i[o_cnt]++;
    	       }
             }
             else
             {
-               if (iy+1 < ny_global) 
+               if (iy+1 < ny_global)
                {
                   offd_i[o_cnt]++;
    	          if (ix > nx*px)
@@ -1135,10 +1139,10 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    	          }
                }
             }
-            if (iz+1 < nz*(pz+1)) 
+            if (iz+1 < nz*(pz+1))
             {
                diag_i[cnt]++;
-               if (iy > ny*py) 
+               if (iy > ny*py)
                {
                   diag_i[cnt]++;
       	          if (ix > nx*px)
@@ -1147,7 +1151,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix) 
+      	             if (ix)
       		        offd_i[o_cnt]++;
       	          }
       	          if (ix < nx*(px+1)-1)
@@ -1156,13 +1160,13 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix+1 < nx_global) 
+      	             if (ix+1 < nx_global)
       		        offd_i[o_cnt]++;
       	          }
                }
                else
                {
-                  if (iy) 
+                  if (iy)
                   {
                      offd_i[o_cnt]++;
       	             if (ix > nx*px)
@@ -1183,25 +1187,25 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
                   }
                }
-               if (ix > nx*px) 
+               if (ix > nx*px)
                   diag_i[cnt]++;
                else
                {
-                  if (ix) 
+                  if (ix)
                   {
-                     offd_i[o_cnt]++; 
+                     offd_i[o_cnt]++;
                   }
                }
-               if (ix+1 < nx*(px+1)) 
+               if (ix+1 < nx*(px+1))
                   diag_i[cnt]++;
                else
                {
-                  if (ix+1 < nx_global) 
+                  if (ix+1 < nx_global)
                   {
-                     offd_i[o_cnt]++; 
+                     offd_i[o_cnt]++;
                   }
                }
-               if (iy+1 < ny*(py+1)) 
+               if (iy+1 < ny*(py+1))
                {
                   diag_i[cnt]++;
       	          if (ix > nx*px)
@@ -1210,7 +1214,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix) 
+      	             if (ix)
       		        offd_i[o_cnt]++;
       	          }
       	          if (ix < nx*(px+1)-1)
@@ -1219,13 +1223,13 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix+1 < nx_global) 
+      	             if (ix+1 < nx_global)
       		        offd_i[o_cnt]++;
       	          }
                }
                else
                {
-                  if (iy+1 < ny_global) 
+                  if (iy+1 < ny_global)
                   {
                      offd_i[o_cnt]++;
       	             if (ix > nx*px)
@@ -1252,7 +1256,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                if (iz+1 < nz_global)
 	       {
 		  offd_i[o_cnt]++;
-                  if (iy > ny*py) 
+                  if (iy > ny*py)
                   {
                      offd_i[o_cnt]++;
       	             if (ix > nx*px)
@@ -1261,7 +1265,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix) 
+      	                if (ix)
       	   	        offd_i[o_cnt]++;
       	             }
       	             if (ix < nx*(px+1)-1)
@@ -1270,13 +1274,13 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix+1 < nx_global) 
+      	                if (ix+1 < nx_global)
       	   	        offd_i[o_cnt]++;
       	             }
                   }
                   else
                   {
-                     if (iy) 
+                     if (iy)
                      {
                         offd_i[o_cnt]++;
       	                if (ix > nx*px)
@@ -1297,25 +1301,25 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	                }
                      }
                   }
-                  if (ix > nx*px) 
+                  if (ix > nx*px)
                      offd_i[o_cnt]++;
                   else
                   {
-                     if (ix) 
+                     if (ix)
                      {
-                        offd_i[o_cnt]++; 
+                        offd_i[o_cnt]++;
                      }
                   }
-                  if (ix+1 < nx*(px+1)) 
+                  if (ix+1 < nx*(px+1))
                      offd_i[o_cnt]++;
                   else
                   {
-                     if (ix+1 < nx_global) 
+                     if (ix+1 < nx_global)
                      {
-                        offd_i[o_cnt]++; 
+                        offd_i[o_cnt]++;
                      }
                   }
-                  if (iy+1 < ny*(py+1)) 
+                  if (iy+1 < ny*(py+1))
                   {
                      offd_i[o_cnt]++;
       	             if (ix > nx*px)
@@ -1324,7 +1328,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix) 
+      	                if (ix)
       	   	           offd_i[o_cnt]++;
       	             }
       	             if (ix < nx*(px+1)-1)
@@ -1333,13 +1337,13 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix+1 < nx_global) 
+      	                if (ix+1 < nx_global)
       	   	           offd_i[o_cnt]++;
       	             }
                   }
                   else
                   {
-                     if (iy+1 < ny_global) 
+                     if (iy+1 < ny_global)
                      {
                         offd_i[o_cnt]++;
       	                if (ix > nx*px)
@@ -1375,6 +1379,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
 
    if (my_thread == 0)
    {
+      printf("My thread is 0\n");
       for (i=1; i< num_threads; i++)
          nnz[i]+= nnz[i-1];
 
@@ -1389,7 +1394,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
 #pragma omp barrier
 #endif
 
-   if (my_thread) 
+   if (my_thread)
    {
       cnt = nnz[my_thread-1];
       new_row_index = row_index+(iz_start-nz*pz)*nxy;
@@ -1407,9 +1412,9 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
          {
             col_nums[cnt] = new_row_index;
             data[cnt++] = value[0];
-            if (iz > nz*pz) 
+            if (iz > nz*pz)
             {
-               if (iy > ny*py) 
+               if (iy > ny*py)
                {
       	          if (ix > nx*px)
       	          {
@@ -1418,7 +1423,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix) 
+      	             if (ix)
       	             {
       		        col_nums[cnt] = hypre_map27(ix-1,iy-1,iz-1,px-1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -1434,7 +1439,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix+1 < nx_global) 
+      	             if (ix+1 < nx_global)
       	             {
       		        col_nums[cnt] = hypre_map27(ix+1,iy-1,iz-1,px+1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -1444,7 +1449,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                }
                else
                {
-                  if (iy) 
+                  if (iy)
                   {
       	             if (ix > nx*px)
       	             {
@@ -1475,14 +1480,14 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
                   }
                }
-               if (ix > nx*px) 
-      	       {   
+               if (ix > nx*px)
+      	       {
       	          col_nums[cnt] = new_row_index-nxy-1;
       	          data[cnt++] = value[1];
-      	       }   
+      	       }
                else
                {
-                  if (ix) 
+                  if (ix)
                   {
       		     col_nums[cnt] = hypre_map27(ix-1,iy,iz-1,px-1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -1491,21 +1496,21 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                }
       	       col_nums[cnt] = new_row_index-nxy;
       	       data[cnt++] = value[1];
-               if (ix+1 < nx*(px+1)) 
-      	       {   
+               if (ix+1 < nx*(px+1))
+      	       {
       	          col_nums[cnt] = new_row_index-nxy+1;
       	          data[cnt++] = value[1];
-      	       }   
+      	       }
                else
                {
-                  if (ix+1 < nx_global) 
+                  if (ix+1 < nx_global)
                   {
       		     col_nums[cnt] = hypre_map27(ix+1,iy,iz-1,px+1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
       		     data[cnt++] = value[1];
                   }
                }
-               if (iy+1 < ny*(py+1)) 
+               if (iy+1 < ny*(py+1))
                {
       	          if (ix > nx*px)
       	          {
@@ -1514,7 +1519,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix) 
+      	             if (ix)
                      {
       		        col_nums[cnt] = hypre_map27(ix-1,iy+1,iz-1,px-1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -1530,7 +1535,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix+1 < nx_global) 
+      	             if (ix+1 < nx_global)
                      {
       		        col_nums[cnt] = hypre_map27(ix+1,iy+1,iz-1,px+1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -1540,7 +1545,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                }
                else
                {
-                  if (iy+1 < ny_global) 
+                  if (iy+1 < ny_global)
                   {
       	             if (ix > nx*px)
       	             {
@@ -1576,7 +1581,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
             {
                if (iz)
 	       {
-                  if (iy > ny*py) 
+                  if (iy > ny*py)
                   {
       	             if (ix > nx*px)
       	             {
@@ -1586,7 +1591,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix) 
+      	                if (ix)
       	                {
       		           col_nums[cnt] = hypre_map27(ix-1,iy-1,iz-1,px-1,py,pz-1,
 					Cx,Cy,Cz,nx,nxy);
@@ -1604,7 +1609,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix+1 < nx_global) 
+      	                if (ix+1 < nx_global)
       	                {
       		           col_nums[cnt] = hypre_map27(ix+1,iy-1,iz-1,px+1,py,pz-1,
 					Cx,Cy,Cz,nx,nxy);
@@ -1614,7 +1619,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                   }
                   else
                   {
-                     if (iy) 
+                     if (iy)
                      {
       	                if (ix > nx*px)
       	                {
@@ -1645,7 +1650,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	                }
                      }
                   }
-                  if (ix > nx*px) 
+                  if (ix > nx*px)
                   {
       		     col_nums[cnt] =hypre_map27(ix-1,iy,iz-1,px,py,pz-1,
 					Cx,Cy,Cz,nx,nxy);
@@ -1653,7 +1658,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                   }
                   else
                   {
-                     if (ix) 
+                     if (ix)
                      {
       		        col_nums[cnt] =hypre_map27(ix-1,iy,iz-1,px-1,py,pz-1,
 					Cx,Cy,Cz,nx,nxy);
@@ -1663,7 +1668,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       		  col_nums[cnt] =hypre_map27(ix,iy,iz-1,px,py,pz-1,
 					Cx,Cy,Cz,nx,nxy);
       		  data[cnt++] = value[1];
-                  if (ix+1 < nx*(px+1)) 
+                  if (ix+1 < nx*(px+1))
                   {
       		     col_nums[cnt] =hypre_map27(ix+1,iy,iz-1,px,py,pz-1,
 					Cx,Cy,Cz,nx,nxy);
@@ -1671,14 +1676,14 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                   }
                   else
                   {
-                     if (ix+1 < nx_global) 
+                     if (ix+1 < nx_global)
                      {
       		        col_nums[cnt] =hypre_map27(ix+1,iy,iz-1,px+1,py,pz-1,
 					Cx,Cy,Cz,nx,nxy);
       		        data[cnt++] = value[1];
                      }
                   }
-                  if (iy+1 < ny*(py+1)) 
+                  if (iy+1 < ny*(py+1))
                   {
       	             if (ix > nx*px)
       	             {
@@ -1688,7 +1693,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix) 
+      	                if (ix)
       	                {
       		           col_nums[cnt] =hypre_map27(ix-1,iy+1,iz-1,px-1,py,pz-1,
 					Cx,Cy,Cz,nx,nxy);
@@ -1706,7 +1711,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix+1 < nx_global) 
+      	                if (ix+1 < nx_global)
       	                {
       		           col_nums[cnt] =hypre_map27(ix+1,iy+1,iz-1,px+1,py,pz-1,
 					Cx,Cy,Cz,nx,nxy);
@@ -1716,7 +1721,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                   }
                   else
                   {
-                     if (iy+1 < ny_global) 
+                     if (iy+1 < ny_global)
                      {
       	                if (ix > nx*px)
       	                {
@@ -1749,7 +1754,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                   }
                }
             }
-            if (iy > ny*py) 
+            if (iy > ny*py)
             {
    	       if (ix > nx*px)
    	       {
@@ -1758,7 +1763,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    	       }
    	       else
    	       {
-   	          if (ix) 
+   	          if (ix)
    	          {
       		     col_nums[cnt] =hypre_map27(ix-1,iy-1,iz,px-1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -1774,7 +1779,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    	       }
    	       else
    	       {
-   	          if (ix+1 < nx_global) 
+   	          if (ix+1 < nx_global)
    	          {
       		     col_nums[cnt] =hypre_map27(ix+1,iy-1,iz,px+1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -1784,7 +1789,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
             }
             else
             {
-               if (iy) 
+               if (iy)
                {
    	          if (ix > nx*px)
    	          {
@@ -1815,35 +1820,35 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    	          }
                }
             }
-            if (ix > nx*px) 
+            if (ix > nx*px)
             {
                col_nums[cnt] = new_row_index-1;
                data[cnt++] = value[1];
             }
             else
             {
-               if (ix) 
+               if (ix)
                {
       		  col_nums[cnt] =hypre_map27(ix-1,iy,iz,px-1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
       		  data[cnt++] = value[1];
                }
             }
-            if (ix+1 < nx*(px+1)) 
+            if (ix+1 < nx*(px+1))
             {
                col_nums[cnt] = new_row_index+1;
                data[cnt++] = value[1];
             }
             else
             {
-               if (ix+1 < nx_global) 
+               if (ix+1 < nx_global)
                {
       		  col_nums[cnt] =hypre_map27(ix+1,iy,iz,px+1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
       		  data[cnt++] = value[1];
                }
             }
-            if (iy+1 < ny*(py+1)) 
+            if (iy+1 < ny*(py+1))
             {
    	       if (ix > nx*px)
    	       {
@@ -1852,7 +1857,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    	       }
    	       else
    	       {
-   	          if (ix) 
+   	          if (ix)
                   {
       		     col_nums[cnt] =hypre_map27(ix-1,iy+1,iz,px-1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -1868,7 +1873,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    	       }
    	       else
    	       {
-   	          if (ix+1 < nx_global) 
+   	          if (ix+1 < nx_global)
                   {
       		     col_nums[cnt] =hypre_map27(ix+1,iy+1,iz,px+1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -1878,7 +1883,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
             }
             else
             {
-               if (iy+1 < ny_global) 
+               if (iy+1 < ny_global)
                {
    	          if (ix > nx*px)
    	          {
@@ -1909,9 +1914,9 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
    	          }
                }
             }
-            if (iz+1 < nz*(pz+1)) 
+            if (iz+1 < nz*(pz+1))
             {
-               if (iy > ny*py) 
+               if (iy > ny*py)
                {
       	          if (ix > nx*px)
       	          {
@@ -1920,7 +1925,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix) 
+      	             if (ix)
    	             {
       		        col_nums[cnt] =hypre_map27(ix-1,iy-1,iz+1,px-1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -1936,7 +1941,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix+1 < nx_global) 
+      	             if (ix+1 < nx_global)
    	             {
       		        col_nums[cnt] =hypre_map27(ix+1,iy-1,iz+1,px+1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -1946,7 +1951,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                }
                else
                {
-                  if (iy) 
+                  if (iy)
                   {
       	             if (ix > nx*px)
       	             {
@@ -1977,14 +1982,14 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
                   }
                }
-               if (ix > nx*px) 
+               if (ix > nx*px)
                {
                   col_nums[cnt] = new_row_index+nxy-1;
                   data[cnt++] = value[1];
                }
                else
                {
-                  if (ix) 
+                  if (ix)
                   {
       		     col_nums[cnt] =hypre_map27(ix-1,iy,iz+1,px-1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -1993,21 +1998,21 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                }
                col_nums[cnt] = new_row_index+nxy;
                data[cnt++] = value[1];
-               if (ix+1 < nx*(px+1)) 
+               if (ix+1 < nx*(px+1))
                {
                   col_nums[cnt] = new_row_index+nxy+1;
                   data[cnt++] = value[1];
                }
                else
                {
-                  if (ix+1 < nx_global) 
+                  if (ix+1 < nx_global)
                   {
       		     col_nums[cnt] =hypre_map27(ix+1,iy,iz+1,px+1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
       		     data[cnt++] = value[1];
                   }
                }
-               if (iy+1 < ny*(py+1)) 
+               if (iy+1 < ny*(py+1))
                {
       	          if (ix > nx*px)
       	          {
@@ -2016,7 +2021,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix) 
+      	             if (ix)
                      {
       		        col_nums[cnt] =hypre_map27(ix-1,iy+1,iz+1,px-1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -2032,7 +2037,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	          }
       	          else
       	          {
-      	             if (ix+1 < nx_global) 
+      	             if (ix+1 < nx_global)
                      {
       		        col_nums[cnt] =hypre_map27(ix+1,iy+1,iz+1,px+1,py,pz,
 					Cx,Cy,Cz,nx,nxy);
@@ -2042,7 +2047,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                }
                else
                {
-                  if (iy+1 < ny_global) 
+                  if (iy+1 < ny_global)
                   {
       	             if (ix > nx*px)
       	             {
@@ -2078,7 +2083,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
             {
                if (iz+1 < nz_global)
 	       {
-                  if (iy > ny*py) 
+                  if (iy > ny*py)
                   {
       	             if (ix > nx*px)
       	             {
@@ -2088,7 +2093,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix) 
+      	                if (ix)
       	                {
       		           col_nums[cnt] =hypre_map27(ix-1,iy-1,iz+1,px-1,py,pz+1,
 					Cx,Cy,Cz,nx,nxy);
@@ -2106,7 +2111,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix+1 < nx_global) 
+      	                if (ix+1 < nx_global)
       	                {
       		           col_nums[cnt] =hypre_map27(ix+1,iy-1,iz+1,px+1,py,pz+1,
 					Cx,Cy,Cz,nx,nxy);
@@ -2116,7 +2121,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                   }
                   else
                   {
-                     if (iy) 
+                     if (iy)
                      {
       	                if (ix > nx*px)
       	                {
@@ -2147,7 +2152,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	                }
                      }
                   }
-                  if (ix > nx*px) 
+                  if (ix > nx*px)
                   {
       		     col_nums[cnt] =hypre_map27(ix-1,iy,iz+1,px,py,pz+1,
 					Cx,Cy,Cz,nx,nxy);
@@ -2155,7 +2160,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                   }
                   else
                   {
-                     if (ix) 
+                     if (ix)
                      {
       		        col_nums[cnt] =hypre_map27(ix-1,iy,iz+1,px-1,py,pz+1,
 					Cx,Cy,Cz,nx,nxy);
@@ -2165,7 +2170,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       		  col_nums[cnt] =hypre_map27(ix,iy,iz+1,px,py,pz+1,
 					Cx,Cy,Cz,nx,nxy);
       		  data[cnt++] = value[1];
-                  if (ix+1 < nx*(px+1)) 
+                  if (ix+1 < nx*(px+1))
                   {
       		     col_nums[cnt] =hypre_map27(ix+1,iy,iz+1,px,py,pz+1,
 					Cx,Cy,Cz,nx,nxy);
@@ -2173,14 +2178,14 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                   }
                   else
                   {
-                     if (ix+1 < nx_global) 
+                     if (ix+1 < nx_global)
                      {
       		        col_nums[cnt] =hypre_map27(ix+1,iy,iz+1,px+1,py,pz+1,
 					Cx,Cy,Cz,nx,nxy);
       		        data[cnt++] = value[1];
                      }
                   }
-                  if (iy+1 < ny*(py+1)) 
+                  if (iy+1 < ny*(py+1))
                   {
       	             if (ix > nx*px)
       	             {
@@ -2190,7 +2195,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix) 
+      	                if (ix)
       	                {
       		           col_nums[cnt] =hypre_map27(ix-1,iy+1,iz+1,px-1,py,pz+1,
 					Cx,Cy,Cz,nx,nxy);
@@ -2208,7 +2213,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       	             }
       	             else
       	             {
-      	                if (ix+1 < nx_global) 
+      	                if (ix+1 < nx_global)
       	                {
       		           col_nums[cnt] =hypre_map27(ix+1,iy+1,iz+1,px+1,py,pz+1,
 					Cx,Cy,Cz,nx,nxy);
@@ -2218,7 +2223,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
                   }
                   else
                   {
-                     if (iy+1 < ny_global) 
+                     if (iy+1 < ny_global)
                      {
       	                if (ix > nx*px)
       	                {
@@ -2317,7 +2322,7 @@ AddOrRestoreAIJ( HYPRE_IJMatrix  ij_A, HYPRE_Real eps, HYPRE_Int action  )
       data[i] = eps;
    }
 
-   if (action) 
+   if (action)
       HYPRE_IJMatrixAddToValues(ij_A, local_size, num_cols, row_nums,
 			col_nums, data);
    else

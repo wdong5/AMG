@@ -292,6 +292,7 @@ HYPRE_Int HYPRE_IJMatrixRead(const char     *filename,
  * Print the matrix to file.  This is mainly for debugging purposes.
  **/
 HYPRE_Int HYPRE_IJMatrixPrint(HYPRE_IJMatrix  matrix,
+				HYPRE_Int     seed,
                               const char     *filename);
 
 /*@}*/
@@ -455,6 +456,7 @@ HYPRE_Int HYPRE_IJVectorRead(const char     *filename,
  * Print the vector to file.  This is mainly for debugging purposes.
  **/
 HYPRE_Int HYPRE_IJVectorPrint(HYPRE_IJVector  vector,
+				HYPRE_Int     seed,
                               const char     *filename);
 
 /*@}*/

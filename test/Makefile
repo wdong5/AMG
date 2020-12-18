@@ -28,7 +28,7 @@ srcdir = .
                                                                                                
 include ../Makefile.include
                                                                                                
-CFLAGS = \
+CFLAGS = -pg \
  -I..\
  -I../utilities\
  -I../IJ_mv\
@@ -39,7 +39,7 @@ CFLAGS = \
  ${INCLUDE_CFLAGS}\
  -DHYPRE_TIMING
                                                                                                
-LFLAGS =\
+LFLAGS = -pg \
  -L.\
  -L../parcsr_ls\
  -L../parcsr_mv\
