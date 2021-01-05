@@ -77,7 +77,7 @@ main( hypre_int argc,
    HYPRE_Int           nodal = 0;
    //WQ: add a random index for generating the dataset
    srand(time(NULL));
-   HYPRE_Int           seed = rand()%10000;
+   HYPRE_Int           seed = rand()%100000;
 
    HYPRE_Real          final_res_norm;
    void               *object;
@@ -275,12 +275,19 @@ main( hypre_int argc,
    hypre_BeginTiming(time_index);
 
    BuildIJLaplacian27pt(argc, argv, &system_size, &ij_A);
+
+   //WQ: generate different dataset based on hyperparameters diag_i, offd_i;
+   printf("The function AddOrRestoreAIJ can be executed\n");
+   HYPRE_Real rand_seed = -7.8 + 15.6 *(rand() / (double)RAND_MAX);
+   AddOrRestoreAIJ(ij_A, rand_seed, 1);
+
    HYPRE_IJMatrixGetObject(ij_A, &object);
    parcsr_A = (HYPRE_ParCSRMatrix) object;
 
 
    hypre_EndTiming(time_index);
    hypre_PrintTiming("Generate Matrix", &wall_time, hypre_MPI_COMM_WORLD);
+
    hypre_FinalizeTiming(time_index);
    hypre_ClearTiming();
 
@@ -342,9 +349,9 @@ main( hypre_int argc,
    if (print_system)
    {
 
-      HYPRE_IJMatrixPrint(ij_A, seed, "IJ.out.A");
-      HYPRE_IJVectorPrint(ij_b, seed, "IJ.out.b");
-      HYPRE_IJVectorPrint(ij_x, seed, "IJ.out.x0");
+      HYPRE_IJMatrixPrint(ij_A, seed, "IJ_A/IJ.out.A");
+      // HYPRE_IJVectorPrint(ij_b, seed, "IJ.out.b");
+      // HYPRE_IJVectorPrint(ij_x, seed, "IJ.out.x0");
    }
 
    /*-----------------------------------------------------------
@@ -423,6 +430,7 @@ main( hypre_int argc,
       hypre_MPI_Barrier(hypre_MPI_COMM_WORLD);
       hypre_EndTiming(time_index);
       hypre_PrintTiming("Problem 1: AMG-PCG Solve Time", &wall_time, hypre_MPI_COMM_WORLD);
+      // HYPRE_IJMatrixPrint(wall_time, 0, "wall_time");
       hypre_FinalizeTiming(time_index);
       hypre_ClearTiming();
       fflush(NULL);
@@ -437,6 +445,7 @@ main( hypre_int argc,
 
       FOM2 = cum_nnz_AP*(HYPRE_Real)num_iterations/ wall_time;
 
+
       if (myid == 0)
       {
          hypre_printf("\n");
@@ -448,7 +457,6 @@ main( hypre_int argc,
          FOM1 /= 4.0;
          printf ("\n\nFigure of Merit (FOM_1): %e\n\n", FOM1);
       }
-
    }
 
    /*-----------------------------------------------------------
@@ -465,7 +473,6 @@ main( hypre_int argc,
       hypre_BeginTiming(time_index);
       for (j=0; j < time_steps; j++)
       {
-
          HYPRE_ParCSRGMRESCreate(hypre_MPI_COMM_WORLD, &pcg_solver);
          HYPRE_GMRESSetKDim(pcg_solver, k_dim);
          HYPRE_GMRESSetMaxIter(pcg_solver, max_iter);
@@ -581,7 +588,7 @@ main( hypre_int argc,
 
    if (print_system)
    {
-      HYPRE_IJVectorPrint(ij_x, seed, "IJ.out.x");
+      HYPRE_IJVectorPrint(ij_x, seed, "IJ_x/IJ.out.x");
    }
 
    /*-----------------------------------------------------------
@@ -1388,6 +1395,7 @@ BuildIJLaplacian27pt( HYPRE_Int         argc,
       data = hypre_CTAlloc(HYPRE_Real, all_nnz);
 
       HYPRE_IJMatrixSetDiagOffdSizes( ij_A, diag_i, offd_i);
+
    }
 
 #ifdef HYPRE_USING_OPENMP

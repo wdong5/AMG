@@ -34,6 +34,8 @@
 hypre_TimingWallCount -= time_getWallclockSeconds();\
 hypre_TimingCPUCount -= time_getCPUSeconds()
 
+FILE *f;
+
 #define hypre_StopTiming() \
 hypre_TimingWallCount += time_getWallclockSeconds();\
 hypre_TimingCPUCount += time_getCPUSeconds()
@@ -113,7 +115,7 @@ hypre_InitializeTiming( const char *name )
          old_name      = (hypre_global_timing_ref(threadid, name));
          old_state     = (hypre_global_timing_ref(threadid, state));
          old_num_regs  = (hypre_global_timing_ref(threadid, num_regs));
-    
+
          (hypre_global_timing_ref(threadid, wall_time)) =
             hypre_CTAlloc(HYPRE_Real, (time_index+1));
          (hypre_global_timing_ref(threadid, cpu_time))  =
@@ -186,7 +188,7 @@ hypre_FinalizeTiming( HYPRE_Int time_index )
    if ((hypre_global_timing -> num_names) == 0)
    {
       for (i = 0; i < (hypre_global_timing -> size); i++)
-      {  
+      {
          hypre_TFree(hypre_global_timing_ref(i, wall_time));
          hypre_TFree(hypre_global_timing_ref(i, cpu_time));
          hypre_TFree(hypre_global_timing_ref(i, flops));
@@ -194,7 +196,7 @@ hypre_FinalizeTiming( HYPRE_Int time_index )
          hypre_TFree(hypre_global_timing_ref(i, state));
          hypre_TFree(hypre_global_timing_ref(i, num_regs));
       }
-      
+
       hypre_TFree(hypre_global_timing);
       hypre_global_timing = NULL;
    }
@@ -358,6 +360,11 @@ hypre_PrintTiming( const char     *heading,
             else
                cpu_mflops = 0.0;
             hypre_printf("  cpu MFLOPS      = %f\n\n", cpu_mflops);
+            f = fopen("timing.csv", "a");
+            printf("%f\t %f \n", wall_time, cpu_time);
+            fprintf(f, "%f\t %f \n", wall_time, cpu_time);
+            fclose(f);
+
          }
       }
    }
